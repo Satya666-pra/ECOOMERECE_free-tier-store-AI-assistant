@@ -1,0 +1,39 @@
+# Not needed in the image
+.git/
+.claude/
+README.md
+commands.md
+docs/
+clientenv
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+clothenv/
+.venv/
+venv/
+
+# Environment variables (injected at deploy time).
+# `**/` makes these match at any depth — a bare `.env` only matches the project
+# root, and Frontend/ is served as public static files.
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Caches / logs / scratch
+.pytest_cache/
+.mypy_cache/
+.logfire/
+*.log
+experiments/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

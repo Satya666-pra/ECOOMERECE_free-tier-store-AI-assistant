@@ -1,0 +1,32 @@
+# Render Blueprint — replaces cloudbuild.yaml (Cloud Build + Artifact Registry +
+# Cloud Run + Secret Manager) with a single free Render web service.
+#
+# Render builds the Dockerfile itself on every push to the linked branch.
+# Secrets (sync: false) are NOT stored here — you paste their values into the
+# Render dashboard the first time the Blueprint is applied.
+
+services:
+  - type: web
+    name: luxe-store
+    runtime: docker
+    plan: free                 # free instance: sleeps after ~15 min idle, cold start ~30-60 s
+    region: singapore          # closest Render region to Mumbai (no Mumbai region exists)
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true           # redeploy on every push (the old Cloud Build trigger)
+    healthCheckPath: /config   # cheap endpoint, does not touch MongoDB or Groq
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: LOGFIRE_TOKEN     # optional — leave blank to disable tracing
+        sync: false
+      # Optional Portkey gateway — leave unset to call Groq directly:
+      # - key: PORTKEY_API_KEY
+      #   sync: false
+      # - key: PORTKEY_GROQ_PROVIDER
+      #   sync: false
+      - key: ONLINE_EVALS_ENABLED
+        value: "false"         # keep off for a $0 demo (adds judge LLM calls)

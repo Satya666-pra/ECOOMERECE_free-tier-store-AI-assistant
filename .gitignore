@@ -47,3 +47,6 @@ htmlcov/
 
 # Local scratch notebooks — never committed
 experiments/
+
+# Virtual environment inside the POC folder
+pocenv/
