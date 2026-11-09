@@ -47,15 +47,18 @@ async def run_chat(message: str) -> dict:
 
     # Input guards: screen the message with Groq's safety models before the agent
     # ever sees it. Fails open (logs + continues) if a guardrail call itself errors.
-    try:
-        is_injection, is_unsafe = await asyncio.gather(
-            is_prompt_injection(user_message),
-            violates_content_policy(user_message),
-        )
-        if is_injection or is_unsafe:
-            return _blocked()
-    except Exception:
-        logfire.exception("Guardrail check failed; failing open")
+    # return_exceptions=True keeps the two checks independent: if one errors (e.g.
+    # a Groq rate limit) the other's verdict still counts.
+    verdicts = await asyncio.gather(
+        is_prompt_injection(user_message),
+        violates_content_policy(user_message),
+        return_exceptions=True,
+    )
+    for verdict in verdicts:
+        if isinstance(verdict, Exception):
+            logfire.error("Guardrail check failed; failing open: {error}", error=repr(verdict))
+    if any(v is True for v in verdicts):
+        return _blocked()
 
     deps = StoreDeps()
     try:

@@ -30,8 +30,17 @@ from ..utils.llm_gateway import (
 guardrail_client = (
     AsyncOpenAI(api_key=PORTKEY_API_KEY, base_url=PORTKEY_BASE_URL)
     if is_portkey_configured()
-    else AsyncGroq(api_key=settings.groq_api_key)
+    # max_retries=0: on a rate limit (429) the SDK would otherwise sleep ~20 s per
+    # retry before giving up, and the guards fail open anyway (see pipeline.py) —
+    # so fail fast instead of stalling the user's reply.
+    else AsyncGroq(api_key=settings.groq_api_key, max_retries=0)
 )
+
+# Cap on the safeguard model's reply (a short JSON verdict, ~60-100 tokens used).
+# Without a cap Groq budgets the model's default maximum output against the
+# tokens-per-minute limit: ~2,900 tokens requested per call vs the free tier's
+# 2,000 TPM for gpt-oss-safeguard-20b, so every call was rejected or retried.
+GUARD_MAX_COMPLETION_TOKENS = 400
 
 # Overridable via GUARD_MODEL_NAME / PROMPT_GUARD_MODEL_NAME without touching code.
 GUARD_MODEL_NAME = settings.guard_model_name
@@ -155,6 +164,7 @@ async def _check_safety(text: str, policy: str) -> tuple[bool, str]:
             {"role": "user", "content": text},
         ],
         reasoning_effort="low",
+        max_completion_tokens=GUARD_MAX_COMPLETION_TOKENS,
     )
     raw = (response.choices[0].message.content or "").strip()
     raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
