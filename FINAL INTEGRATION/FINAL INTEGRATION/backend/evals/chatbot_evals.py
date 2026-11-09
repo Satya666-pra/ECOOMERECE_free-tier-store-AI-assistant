@@ -60,6 +60,35 @@ class GuardrailBlocked(Evaluator):
         return blocked == self.should_be_blocked
 
 
+@dataclass
+class AllProductNamesContainAny(Evaluator):
+    """Every returned product's name contains at least one of the given words.
+
+    Catches the agent searching with no keyword (so suits and jeans come back
+    for "shirts"). Fails if no products were returned at all.
+    """
+    words: tuple
+
+    def evaluate(self, ctx: EvaluatorContext) -> bool:
+        products = ctx.output.get("data") or []
+        if not products:
+            return False
+        return all(
+            any(w in (p.get("name") or "").lower() for w in self.words)
+            for p in products
+        )
+
+
+@dataclass
+class AllProductPricesAtMost(Evaluator):
+    """Every returned product costs at most `limit` (inclusive)."""
+    limit: int
+
+    def evaluate(self, ctx: EvaluatorContext) -> bool:
+        products = ctx.output.get("data") or []
+        return bool(products) and all(p.get("price", 0) <= self.limit for p in products)
+
+
 called_search_tool = HasMatchingSpan(
     query=SpanQuery(name_contains="search_products"),
     evaluation_name="called_search_products_tool",
@@ -93,6 +122,27 @@ dataset = Dataset(
             name="product query - shirts under budget",
             inputs="show me shirts under 1000 rupees",
             evaluators=(called_search_tool, GuardrailBlocked(should_be_blocked=False)),
+        ),
+        # Regression: the agent once searched category + price with NO keyword,
+        # so "men's shirts under 1000" also returned suits and jeans.
+        Case(
+            name="product query - only shirts, not suits or jeans",
+            inputs="show me men's shirts under 1000",
+            evaluators=(
+                called_search_tool,
+                ResponseTypeIs("products"),
+                AllProductNamesContainAny(("shirt", "tee", "polo", "blouse")),
+                AllProductPricesAtMost(1000),
+            ),
+        ),
+        Case(
+            name="product query - pants means jeans/chinos/trousers",
+            inputs="show me men's pants",
+            evaluators=(
+                called_search_tool,
+                ResponseTypeIs("products"),
+                AllProductNamesContainAny(("pant", "trouser", "jean", "chino")),
+            ),
         ),
         Case(
             name="product query - kids category",
