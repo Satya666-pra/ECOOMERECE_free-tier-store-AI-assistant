@@ -89,6 +89,18 @@ class AllProductPricesAtMost(Evaluator):
         return bool(products) and all(p.get("price", 0) <= self.limit for p in products)
 
 
+@dataclass
+class AllProductCategoriesAre(Evaluator):
+    """Every returned product is in the given category. Fails on empty results."""
+    category: str
+
+    def evaluate(self, ctx: EvaluatorContext) -> bool:
+        products = ctx.output.get("data") or []
+        return bool(products) and all(
+            (p.get("category") or "").lower() == self.category for p in products
+        )
+
+
 called_search_tool = HasMatchingSpan(
     query=SpanQuery(name_contains="search_products"),
     evaluation_name="called_search_products_tool",
@@ -142,6 +154,17 @@ dataset = Dataset(
                 called_search_tool,
                 ResponseTypeIs("products"),
                 AllProductNamesContainAny(("pant", "trouser", "jean", "chino")),
+            ),
+        ),
+        # Regression: the agent once passed category="male", which matched nothing
+        # because the catalog's category is "men" (see normalize_category).
+        Case(
+            name="product query - 'male' means the men category",
+            inputs="types of products in male category",
+            evaluators=(
+                called_search_tool,
+                ResponseTypeIs("products"),
+                AllProductCategoriesAre("men"),
             ),
         ),
         Case(
