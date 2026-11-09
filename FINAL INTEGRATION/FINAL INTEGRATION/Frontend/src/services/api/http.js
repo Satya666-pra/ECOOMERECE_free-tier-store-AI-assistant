@@ -14,7 +14,10 @@ import { API_BASE, INGESTION_API_BASE, adminHeaders } from './common.js';
  * throws Error(<backend detail>) on any non-2xx response or network failure —
  * so every caller can rely on "it returned" meaning "it worked".
  */
-const REQUEST_TIMEOUT_MS = 20000;
+// 60 s rather than 20 s: on Render's free tier a chat request (guards + LLM +
+// tool + guard) can take 20+ s, and a cold start adds 30-60 s more. A shorter
+// limit made the browser give up while the server was still working.
+const REQUEST_TIMEOUT_MS = 60000;
 
 export async function request(path, { method = 'GET', body, headers = {}, write = false, admin = false } = {}) {
   const base = write ? INGESTION_API_BASE : API_BASE;
