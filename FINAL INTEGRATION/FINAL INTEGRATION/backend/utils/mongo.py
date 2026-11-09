@@ -14,6 +14,29 @@ def case_insensitive_contains(value: str) -> dict:
     return {"$regex": re.escape(value), "$options": "i"}
 
 
+# The catalog has exactly three categories: men, women, kids. Shoppers (and the
+# model) say "male", "ladies", "boys"... — map them, or the exact-match category
+# filter finds nothing.
+CATEGORY_ALIASES: dict[str, str] = {
+    "men": "men", "man": "men", "mens": "men", "men's": "men", "male": "men",
+    "gents": "men", "boy": "kids", "boys": "kids",
+    "women": "women", "woman": "women", "womens": "women", "women's": "women",
+    "female": "women", "ladies": "women", "lady": "women",
+    "girl": "kids", "girls": "kids",
+    "kid": "kids", "kids": "kids", "child": "kids", "children": "kids",
+}
+
+
+def normalize_category(value: str) -> str:
+    """Map a shopper's word for a category onto the catalog's (men/women/kids).
+
+    Unknown words are returned lowercased and unchanged, so a genuinely
+    unknown category still (correctly) finds nothing.
+    """
+    key = value.strip().lower()
+    return CATEGORY_ALIASES.get(key, key)
+
+
 def singularize_keyword(value: str) -> str:
     """
     Reduce each word of a search keyword to a simple singular form, so a plural

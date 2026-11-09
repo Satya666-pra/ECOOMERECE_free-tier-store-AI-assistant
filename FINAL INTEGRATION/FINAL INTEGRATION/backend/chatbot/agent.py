@@ -17,6 +17,7 @@ from ..database import products_collection
 from ..utils.images import resolve_image_field
 from ..utils.mongo import (
     case_insensitive_exact,
+    normalize_category,
     price_range_filter,
     product_name_filter,
 )
@@ -103,8 +104,10 @@ def search_products(
     applied: List[str] = []
 
     if category and category.strip():
-        query["category"] = case_insensitive_exact(category.strip())
-        applied.append(f"category={category.strip().lower()}")
+        # "male" / "ladies" / "boys" -> men / women / kids
+        category_name = normalize_category(category)
+        query["category"] = case_insensitive_exact(category_name)
+        applied.append(f"category={category_name}")
 
     if keyword and keyword.strip():
         # Plurals and general words ("shirts", "pants") are expanded to the
